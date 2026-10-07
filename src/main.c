@@ -5,6 +5,31 @@ static void usage(const char *name)
     printf("Usage: %s <map_file> [--screenshot <file.bmp>]\n", name);
 }
 
+static void restart_or_quit(Game *game)
+{
+    if (restart_game(game) != 0)
+        game->game_running = 0;
+}
+
+/* Win or lose: R / Enter restarts, Esc / Q closes, or click a button */
+static void handle_end_event(Game *game, SDL_Event *event)
+{
+    SDL_Keycode key;
+
+    if (event->type == SDL_KEYDOWN && !event->key.repeat) {
+        key = event->key.keysym.sym;
+        if (key == SDLK_r || key == SDLK_RETURN || key == SDLK_KP_ENTER)
+            restart_or_quit(game);
+        else if (key == SDLK_ESCAPE || key == SDLK_q)
+            game->game_running = 0;
+    } else if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_LEFT) {
+        if (end_button_at(event->button.x, event->button.y) == END_RESTART)
+            restart_or_quit(game);
+        else if (end_button_at(event->button.x, event->button.y) == END_CLOSE)
+            game->game_running = 0;
+    }
+}
+
 static void handle_events(Game *game)
 {
     SDL_Event event;
@@ -12,6 +37,8 @@ static void handle_events(Game *game)
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT)
             game->game_running = 0;
+        else if (game->state != STATE_PLAYING)
+            handle_end_event(game, &event);
         else if (event.type == SDL_KEYDOWN && !event.key.repeat) {
             if (event.key.keysym.sym == SDLK_ESCAPE)
                 game->game_running = 0;
@@ -43,6 +70,7 @@ int main(int argc, char *argv[])
     }
 
     memset(&game, 0, sizeof(game));
+    game.map_file = argv[1];
     if (load_map(&game, argv[1]) != 0)
         return 1;
     if (init_game(&game) != 0) {

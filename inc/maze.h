@@ -23,6 +23,9 @@
 #define DEATH_TIME 0.45      /* seconds an enemy takes to vanish */
 #define FIRE_COOLDOWN 0.3    /* seconds between shots */
 #define FLASH_TIME 0.08      /* seconds the muzzle flash shows */
+#define PLAYER_HEALTH 3      /* touches from a ghost before game over */
+#define HURT_TIME 1.0        /* seconds of red flash, and of safety, after a touch */
+#define ENEMY_ATTACK_COOLDOWN 1.5 /* seconds before the same ghost can touch again */
 #define MAX_RAIN_DROPS 600
 #define MINIMAP_SIZE 180
 #define CLEAR_PIXEL 0x00000000u
@@ -35,6 +38,18 @@ enum {
     TEX_ENEMY,
     TEX_WEAPON,
     TEX_COUNT
+};
+
+enum {
+    STATE_PLAYING,
+    STATE_WON,
+    STATE_LOST
+};
+
+/* The two buttons on the end screen */
+enum {
+    END_RESTART = 1,
+    END_CLOSE
 };
 
 typedef struct {
@@ -58,6 +73,7 @@ typedef struct {
     int health;       /* 0 once killed: it then fades out over DEATH_TIME */
     double hit_timer;
     double dying;
+    double attack_timer;
 } Enemy;
 
 typedef struct {
@@ -85,6 +101,10 @@ typedef struct {
     double fire_cooldown;
     double flash_timer;               /* muzzle flash and recoil */
     int enemies_left;                 /* shown in the window title */
+    int player_health;
+    double hurt_timer;
+    int state;                        /* STATE_PLAYING, STATE_WON or STATE_LOST */
+    const char *map_file;             /* reloaded on restart */
     int show_map;
     int rain_active;
     int game_running;
@@ -96,6 +116,7 @@ void handle_input(Game *game, double dt);
 void update_game(Game *game, double dt);
 void render_game(Game *game);
 int save_screenshot(Game *game, const char *filename);
+int restart_game(Game *game);
 void cleanup_game(Game *game);
 
 /* Raycasting functions */
@@ -126,6 +147,11 @@ void update_weapon(Game *game, double dt);
 void draw_weapon(Game *game);
 void draw_crosshair(Game *game);
 void update_title(Game *game);
+
+/* HUD and end screen */
+void draw_hud(Game *game);
+void draw_end_screen(Game *game);
+int end_button_at(int x, int y);
 void init_rain(Game *game);
 void update_rain(Game *game, double dt);
 void draw_rain(Game *game);

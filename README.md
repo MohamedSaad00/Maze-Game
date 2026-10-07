@@ -17,6 +17,10 @@ as one streaming texture; SDL is used only for the window, input and the final b
 - **Shooting** — hitscan down the crosshair against the same depth buffer, so walls stop bullets;
   three hits flash a ghost red and shrink it away, and the window title counts the ghosts left
 - **Muzzle flash and recoil** on every shot, with a fire-rate cooldown
+- **Win and lose** — three hearts; a ghost's touch costs one (the screen flashes red, followed by
+  a second of safety). Clear every ghost to win, lose all three hearts and it is game over; either
+  way an end screen offers **Restart** and **Close**
+- A small **bitmap font** for the HUD, so the game needs nothing beyond SDL2
 - **Collision detection** with a player radius, sliding along walls instead of sticking
 - **Minimap** with walls, enemies, the player and their facing
 - **Rain** with wind and a cold tint, toggled at runtime
@@ -36,6 +40,8 @@ as one streaming texture; SDL is used only for the window, input and the final b
 | M | Toggle minimap |
 | R | Toggle rain |
 | Esc | Quit |
+| R / Enter, or click **Restart** | Play again (on the end screen) |
+| Esc / Q, or click **Close** | Quit (on the end screen) |
 
 ## Building
 
@@ -99,11 +105,12 @@ Maze-Game/
 ├── inc/
 │   └── maze.h        shared types, constants and prototypes
 ├── src/
-│   ├── main.c        arguments, main loop, delta time, key toggles
-│   ├── game.c        SDL setup, movement, frame composition, screenshot, cleanup
+│   ├── main.c        arguments, main loop, delta time, keys and end-screen clicks
+│   ├── game.c        SDL setup, movement, win/lose rules, restart, frame composition
 │   ├── raycast.c     wall casting (DDA), floor/ceiling casting, distance shading
 │   ├── map.c         map parsing and validation, collision, minimap
 │   ├── texture.c     procedural textures and optional BMP loading
+│   ├── hud.c         hearts, hurt flash, bitmap font, win/lose screen and buttons
 │   └── effects.c     enemies (sprites, chase, hits), shooting, weapon, rain
 ├── maps/
 │   ├── sample.map    25×19 maze, six enemies

@@ -36,6 +36,26 @@ int init_game(Game *game)
     game->show_map = 0;
     game->rain_active = 0;
     game->game_running = 1;
+    game->player_health = PLAYER_HEALTH;
+    game->state = STATE_PLAYING;
+    return 0;
+}
+
+/* Back to the start of the same map: fresh enemies, full health */
+int restart_game(Game *game)
+{
+    free_map(game);
+    game->enemy_count = 0;
+    game->enemies_left = 0;
+    game->player_health = PLAYER_HEALTH;
+    game->hurt_timer = 0;
+    game->fire_cooldown = 0;
+    game->flash_timer = 0;
+    game->walk_time = 0;
+    game->state = STATE_PLAYING;
+    if (load_map(game, game->map_file) != 0)
+        return -1;
+    update_title(game);
     return 0;
 }
 
@@ -71,6 +91,9 @@ void handle_input(Game *game, double dt)
     double dx = 0;
     double dy = 0;
 
+    if (game->state != STATE_PLAYING)
+        return;
+
     if (keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP]) {
         dx += p->dir_x * step;
         dy += p->dir_y * step;
@@ -101,10 +124,23 @@ void handle_input(Game *game, double dt)
 
 void update_game(Game *game, double dt)
 {
-    update_enemies(game, dt);
-    update_weapon(game, dt);
     if (game->rain_active)
         update_rain(game, dt);
+    if (game->state != STATE_PLAYING)
+        return; /* the scene stays frozen behind the end screen */
+
+    update_enemies(game, dt);
+    update_weapon(game, dt);
+    if (game->hurt_timer > 0)
+        game->hurt_timer -= dt;
+
+    if (game->player_health <= 0) {
+        game->state = STATE_LOST;
+        update_title(game);
+    } else if (game->enemy_count == 0) {
+        game->state = STATE_WON; /* the last ghost has finished fading out */
+        update_title(game);
+    }
 }
 
 /* Draws the whole frame into the renderer without presenting it */
@@ -122,9 +158,13 @@ static void compose_frame(Game *game)
     /* Overlays are drawn by the renderer on top, with alpha blending */
     if (game->rain_active)
         draw_rain(game);
-    draw_crosshair(game);
     if (game->show_map)
         draw_minimap(game);
+    if (game->state == STATE_PLAYING) {
+        draw_crosshair(game);
+        draw_hud(game);
+    } else
+        draw_end_screen(game);
 }
 
 void render_game(Game *game)

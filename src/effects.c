@@ -16,7 +16,10 @@ void add_enemy(Game *game, double x, double y)
     game->enemies_left++;
 }
 
-/* Enemies drift towards a nearby player and slide along walls, as the player does */
+/*
+ * Enemies drift towards a nearby player and slide along walls, as the player
+ * does. Once close enough they touch: one life lost, then a moment of safety.
+ */
 static void chase(Game *game, Enemy *e, double dt)
 {
     double dx = game->player.x - e->x;
@@ -24,7 +27,14 @@ static void chase(Game *game, Enemy *e, double dt)
     double distance = sqrt(dx * dx + dy * dy);
     double step;
 
-    if (distance > ENEMY_SIGHT || distance < ENEMY_REACH)
+    if (distance > ENEMY_SIGHT)
+        return;
+    if (distance < ENEMY_REACH + 0.1 && e->attack_timer <= 0 && game->hurt_timer <= 0) {
+        game->player_health--;
+        game->hurt_timer = HURT_TIME;
+        e->attack_timer = ENEMY_ATTACK_COOLDOWN;
+    }
+    if (distance < ENEMY_REACH)
         return;
     step = ENEMY_SPEED * dt / distance;
     if (!check_collision(game, e->x + dx * step, e->y))
@@ -42,6 +52,8 @@ void update_enemies(Game *game, double dt)
         e = &game->enemies[i];
         if (e->hit_timer > 0)
             e->hit_timer -= dt;
+        if (e->attack_timer > 0)
+            e->attack_timer -= dt;
         if (e->health > 0) {
             chase(game, e, dt);
         } else if ((e->dying -= dt) <= 0) {
@@ -148,7 +160,7 @@ void fire_weapon(Game *game)
     double depth, nearest = game->z_buffer[SCREEN_WIDTH / 2];
     int screen_x, size, i;
 
-    if (game->fire_cooldown > 0)
+    if (game->fire_cooldown > 0 || game->state != STATE_PLAYING)
         return;
     game->fire_cooldown = FIRE_COOLDOWN;
     game->flash_timer = FLASH_TIME;
@@ -244,7 +256,9 @@ void update_title(Game *game)
 
     if (!game->window)
         return;
-    if (game->enemies_left > 0)
+    if (game->state == STATE_LOST)
+        snprintf(title, sizeof(title), "Maze Game - game over");
+    else if (game->enemies_left > 0)
         snprintf(title, sizeof(title), "Maze Game - %d %s left", game->enemies_left,
                  game->enemies_left == 1 ? "ghost" : "ghosts");
     else
