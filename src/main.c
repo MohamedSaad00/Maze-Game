@@ -1,39 +1,82 @@
 #include "../inc/maze.h"
 
+static void usage(const char *name)
+{
+    printf("Usage: %s <map_file> [--screenshot <file.bmp>]\n", name);
+}
+
+static void handle_events(Game *game)
+{
+    SDL_Event event;
+
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT)
+            game->game_running = 0;
+        else if (event.type == SDL_KEYDOWN && !event.key.repeat) {
+            if (event.key.keysym.sym == SDLK_ESCAPE)
+                game->game_running = 0;
+            else if (event.key.keysym.sym == SDLK_m)
+                game->show_map = !game->show_map;
+            else if (event.key.keysym.sym == SDLK_r)
+                game->rain_active = !game->rain_active;
+            else if (event.key.keysym.sym == SDLK_SPACE)
+                fire_weapon(game);
+        } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)
+            fire_weapon(game);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     Game game;
-    SDL_Event event;
+    const char *screenshot = NULL;
+    Uint64 last;
+    Uint64 now;
+    double dt;
+    int status = 0;
 
-    if (argc != 2) {
-        printf("Usage: %s <map_file>\n", argv[0]);
+    if (argc == 4 && strcmp(argv[2], "--screenshot") == 0)
+        screenshot = argv[3];
+    else if (argc != 2) {
+        usage(argv[0]);
         return 1;
     }
 
-    init_game(&game);
-    load_map(&game, argv[1]);
+    memset(&game, 0, sizeof(game));
+    if (load_map(&game, argv[1]) != 0)
+        return 1;
+    if (init_game(&game) != 0) {
+        cleanup_game(&game);
+        return 1;
+    }
     load_textures(&game);
+    init_rain(&game);
+    update_title(&game);
 
+    /* One frame to a file and out: for the README and for checking a build */
+    if (screenshot) {
+        game.show_map = 1;
+        game.rain_active = 1;
+        update_game(&game, 0.5);
+        status = save_screenshot(&game, screenshot) == 0 ? 0 : 1;
+        cleanup_game(&game);
+        return status;
+    }
+
+    last = SDL_GetPerformanceCounter();
     while (game.game_running) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT)
-                game.game_running = 0;
-            else if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.sym == SDLK_ESCAPE)
-                    game.game_running = 0;
-                else if (event.key.keysym.sym == SDLK_m)
-                    game.show_map = !game.show_map;
-                else if (event.key.keysym.sym == SDLK_r)
-                    game.rain_active = !game.rain_active;
-            }
-        }
+        now = SDL_GetPerformanceCounter();
+        dt = (double)(now - last) / (double)SDL_GetPerformanceFrequency();
+        last = now;
+        if (dt > 0.1)
+            dt = 0.1; /* a stalled frame must not teleport anyone through a wall */
 
-        handle_input(&game);
-        update_game(&game);
+        handle_events(&game);
+        handle_input(&game, dt);
+        update_game(&game, dt);
         render_game(&game);
-        SDL_Delay(16); /* Cap at ~60 FPS */
     }
 
     cleanup_game(&game);
     return 0;
-} 
+}

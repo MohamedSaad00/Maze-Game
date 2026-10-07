@@ -1,0 +1,7 @@
+*.o
+maze_game
+maze_game.exe
+SDL2.dll
+*.bmp
+!textures/*.bmp
+play.bat
